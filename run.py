@@ -46,6 +46,13 @@ def crawl_all_df_city_href(list_state, number_proxy, num_thread, max_trial):
         data.to_csv(f"{FOLDER_DATA}/{state}/df_city_href.csv", index=False)
         T_.df_check.to_csv(f"{FOLDER_DATA}/{state}/df_check.csv", index=False)
 
+def crawl_all_df_company_href(list_state, number_proxy, num_thread, max_trial, start_index, last_index):
+    for state in list_state:
+        os.makedirs(f"{FOLDER_DATA}/{state}/URLs", exist_ok=True)
+        print(f"{FOLDER_DATA}/{state}/URLs")
+        crl = Crawler()
+        crl.multithread_get_all_df_company_href(state, num_thread, number_proxy, max_trial, start_index, last_index)
 
-crawl_df_industry_href(0)
-crawl_all_df_city_href(["florida", "texas"], 0, 8, 1)
+# crawl_df_industry_href(0)
+# crawl_all_df_city_href(["florida", "texas"], 0, 8, 1)
+crawl_all_df_company_href(["florida"], 0, 8, 1, 0, 16)

@@ -261,7 +261,7 @@ class Crawler:
                     soup = BeautifulSoup(br.driver.page_source, "html.parser")
                     list_soup.append(soup)
                     ul = soup.find("ul", {"class": "integratedSearchPaginationPagination"})
-                    if ul.find_all("li", attrs={"class": "next"}).__len__() == 0:
+                    if ul.find_all("li", attrs={"class": "next"}).__len__() == 0 or page==20:
                         check_continue = False
                 elif "Access Denied" in title:
                     return "Denied", None
@@ -347,12 +347,18 @@ class Crawler:
             if status == "Done":
                 getattr(T_, f"list_df_{thread_id}").append(df)
                 count += 1
+                T_.lock.acquire()
+                try:
+                    if T_.last_index_done < index:
+                        T_.last_index_done = index
+                finally: T_.lock.release()
+
                 if count == 100:
                     data = None
                     for df in getattr(T_, f"list_df_{thread_id}"):
                         try: data = pd.concat([data, df], ignore_index=True)
                         except: data = df.copy()
-                    
+
                     count = 0
                     setattr(T_, f"list_df_{thread_id}", [])
                     file_path = f"{FOLDER_DATA}/{T_.state}/URLs/{index}.csv"
@@ -360,8 +366,67 @@ class Crawler:
                     T_.lock.acquire()
                     try: T_.df_check.to_csv(f"{FOLDER_DATA}/{T_.state}/URLs/df_check.csv", index=False)
                     finally: T_.lock.release()
-            
+
             print(index, industry_href, city, status, flush=True)
-        
+
         if is_br_on:
             self.terminate_browser(br)
+
+    def multithread_get_all_df_company_href(self,
+                                            state,
+                                            num_thread=2,
+                                            number_proxy=-1,
+                                            max_trial=5,
+                                            start_index=0,
+                                            last_index=-1,
+                                            ):
+        try:
+            df_check = pd.read_csv(f"{FOLDER_DATA}/{state}/URLs/df_check.csv")
+        except:
+            df_city_href = pd.read_csv(f"{FOLDER_DATA}/{state}/df_city_href.csv")
+            df_check = df_city_href[["href", "industry_href"]].copy()
+            df_check["status"] = "NotDone"
+
+        T_ = TempClass()
+        T_.state = state
+        T_.df_check = df_check
+        T_.lock = threading.Lock()
+        T_.last_index = start_index
+        if last_index == -1 or last_index >= len(df_check):
+            T_.len_ = len(df_check)
+        else:
+            T_.len_ = last_index
+
+        for i in range(num_thread):
+            setattr(T_, f"list_df_{i}", [])
+
+        T_.number_proxy = number_proxy
+        T_.last_index_done = -1
+
+        for trial in range(max_trial):
+            print("Lần", trial, flush=True)
+            T_.last_index = start_index
+            T_.last_index_done = -1
+            threads = []
+            for i in range(num_thread):
+                thread = threading.Thread(target=self._get_all_df_company_href_thread,
+                                          args=(T_, i,))
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+
+            if T_.last_index_done != -1:
+                data = None
+                for thread_id in range(num_thread):
+                    for df in getattr(T_, f"list_df_{thread_id}"):
+                        try: data = pd.concat([data, df], ignore_index=True)
+                        except: data = df.copy()
+
+                    setattr(T_, f"list_df_{thread_id}", [])
+
+                file_path = f"{FOLDER_DATA}/{T_.state}/URLs/{T_.last_index_done}.csv"
+                data.to_csv(file_path, index=False)
+
+            T_.df_check.to_csv(f"{FOLDER_DATA}/{state}/URLs/df_check.csv", index=False)

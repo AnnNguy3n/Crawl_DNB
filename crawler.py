@@ -176,10 +176,11 @@ class Crawler:
             if index >= T_.len_:
                 break
 
-            href = T_.df_check.loc[index, "href"]
             is_done = T_.df_check.loc[index, "status"]
             if is_done == "Done":
                 continue
+
+            href = T_.df_check.loc[index, "href"]
 
             if not is_br_on:
                 T_.lock.acquire()
@@ -239,3 +240,128 @@ class Crawler:
                 thread.join()
 
         return T_
+
+    @staticmethod
+    def get_url_of_city(industry_href, country, state, city, page):
+        return f"https://www.dnb.com/business-directory/company-information.{industry_href}.{country}.{state}.{city}.html?page={page}"
+
+    def visit_webpage_of_city(self, br: EdgeBrowser, industry_href, state, city, country="us"):
+        page = 1
+        url = Crawler.get_url_of_city(industry_href, country, state, city, page)
+        list_soup = []
+        check_continue = True
+        while check_continue:
+            try:
+                br.driver.get(url)
+                if "Challenge Validation" in br.driver.title:
+                    self.wait_for_access(br)
+
+                title = br.driver.title
+                if "Find" in title and "Dun & Bradstreet" in title:
+                    soup = BeautifulSoup(br.driver.page_source, "html.parser")
+                    list_soup.append(soup)
+                    ul = soup.find("ul", {"class": "integratedSearchPaginationPagination"})
+                    if ul.find_all("li", attrs={"class": "next"}).__len__() == 0:
+                        check_continue = False
+                elif "Access Denied" in title:
+                    return "Denied", None
+                else:
+                    return "Error", None
+            except:
+                return "Broken", None
+
+            page += 1
+            url = Crawler.get_url_of_city(industry_href, country, state, city, page)
+
+        return "Done", list_soup
+
+    @staticmethod
+    def convert_list_soup_to_df_company_href(list_soup: list):
+        list_names = []
+        list_hrefs = []
+        list_sales = []
+        for soup in list_soup:
+            coms = soup.find("div", {"id": "companyResults"})
+            list_a_tag = coms.find_all("a")
+            list_names += [_.text.replace("\n", "").strip() for _ in list_a_tag]
+            list_hrefs += [_["href"].replace("/business-directory/company-profiles.", "").replace(".html", "") for _ in list_a_tag]
+            list_sales += [_.text.replace("Sales Revenue ($M):", "").replace("\n", "").strip() for _ in coms.find_all("div", {"class": "col-md-2 last"}) if "Sales Revenue ($M):" in _.text]
+
+        return pd.DataFrame({"name": list_names, "href": list_hrefs, "sales revenue": list_sales})
+
+    def get_df_company_href(self, br: EdgeBrowser, industry_href, state, city):
+        count_access_denied = 0
+        while True:
+            br.change_proxy()
+            status, list_soup = self.visit_webpage_of_city(br, industry_href, state, city)
+            if status == "Denied":
+                count_access_denied += 1
+                if count_access_denied == 10:
+                    return status, None
+            elif status == "Error":
+                return status, None
+            elif status == "Broken":
+                return status, None
+            else:
+                try:
+                    df = Crawler.convert_list_soup_to_df_company_href(list_soup)
+                    return status, df
+                except:
+                    return "Error", None
+
+    def _get_all_df_company_href_thread(self, T_: TempClass, thread_id):
+        is_br_on = False
+        count = 0
+        while True:
+            T_.lock.acquire()
+            try:
+                index = T_.last_index
+                T_.last_index += 1
+            finally: T_.lock.release()
+
+            if index >= T_.len_:
+                break
+
+            is_done = T_.df_check.loc[index, "status"]
+            if is_done == "Done":
+                continue
+
+            industry_href = T_.df_check.loc[index, "industry_href"]
+            city = T_.df_check.loc[index, "href"]
+
+            if not is_br_on:
+                T_.lock.acquire()
+                try: br = self.get_browser(T_.number_proxy)
+                finally: T_.lock.release()
+                is_br_on = True
+
+            status, df = self.get_df_company_href(br, industry_href, T_.state, city)
+            while status in ["Denied", "Broken"]:
+                self.terminate_browser(br)
+                T_.lock.acquire()
+                try: br = self.get_browser(T_.number_proxy)
+                finally: T_.lock.release()
+                status, df = self.get_df_company_href(br, industry_href, T_.state, city)
+
+            T_.df_check.loc[index, "status"] = status
+            if status == "Done":
+                getattr(T_, f"list_df_{thread_id}").append(df)
+                count += 1
+                if count == 100:
+                    data = None
+                    for df in getattr(T_, f"list_df_{thread_id}"):
+                        try: data = pd.concat([data, df], ignore_index=True)
+                        except: data = df.copy()
+                    
+                    count = 0
+                    setattr(T_, f"list_df_{thread_id}", [])
+                    file_path = f"{FOLDER_DATA}/{T_.state}/URLs/{index}.csv"
+                    data.to_csv(file_path, index=False)
+                    T_.lock.acquire()
+                    try: T_.df_check.to_csv(f"{FOLDER_DATA}/{T_.state}/URLs/df_check.csv", index=False)
+                    finally: T_.lock.release()
+            
+            print(index, industry_href, city, status, flush=True)
+        
+        if is_br_on:
+            self.terminate_browser(br)

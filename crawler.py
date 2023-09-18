@@ -84,4 +84,6 @@ class Crawler:
                     self.terminate_browser(br)
                     return data
                 except:
-                     count_error += 1
+                    count_error += 1
+                    if count_error >= br.number_proxy:
+                        raise Exception("Đã thử qua tất cả proxy nhưng không kéo được")

@@ -21,23 +21,21 @@ def get_manifest_json(id):
     return """
 {
     "version": "1.0.0",
-    "manifest_version": 3,
+    "manifest_version": 2,
     "name": "Proxy_%s",
     "permissions": [
         "proxy",
         "tabs",
         "unlimitedStorage",
         "storage",
+        "<all_urls>",
         "webRequest",
-        "webRequestAuthProvider"
-    ],
-    "host_permissions": [
-        "<all_urls>"
+        "webRequestBlocking"
     ],
     "background": {
-        "service_worker": "background.js"
+        "scripts": ["background.js"]
     },
-    "minimum_chrome_version": "108"
+    "minimum_chrome_version":"22.0.0"
 }
 """ % str(id)
 
@@ -45,16 +43,16 @@ def get_manifest_json(id):
 def get_background_js(host, port, username, password):
     return """
 var config = {
-    mode: "fixed_servers",
-    rules: {
+        mode: "fixed_servers",
+        rules: {
         singleProxy: {
             scheme: "http",
             host: "%s",
-            port: %s
+            port: parseInt(%s)
         },
         bypassList: ["localhost"]
-    }
-};
+        }
+    };
 
 chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
 
@@ -68,9 +66,9 @@ function callbackFn(details) {
 }
 
 chrome.webRequest.onAuthRequired.addListener(
-    callbackFn,
-    { urls: ["<all_urls>"] },
-    ['blocking']
+            callbackFn,
+            {urls: ["<all_urls>"]},
+            ['blocking']
 );
 """ % (host, port, username, password)
 

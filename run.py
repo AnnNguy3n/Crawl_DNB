@@ -2,6 +2,7 @@ from crawler import Crawler
 from CONFIG import FOLDER_DATA
 import os
 import pandas as pd
+from linh_tinh import zip_proxy_extensions
 
 
 def crawl_df_industry_href():
@@ -30,4 +31,5 @@ def crawl_all_df_city_href():
         data.to_csv(f"{FOLDER_DATA}/{state}/df_city_href.csv", index=False)
         T_.df_check.to_csv(f"{FOLDER_DATA}/{state}/df_check.csv")
 
+zip_proxy_extensions()
 crawl_all_df_city_href()

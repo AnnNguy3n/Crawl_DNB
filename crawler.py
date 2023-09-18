@@ -407,6 +407,7 @@ class Crawler:
             print("Lần", trial, flush=True)
             T_.last_index = start_index
             T_.last_index_done = -1
+            print(T_.last_index, T_.len_, flush=True)
             threads = []
             for i in range(num_thread):
                 thread = threading.Thread(target=self._get_all_df_company_href_thread,

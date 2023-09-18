@@ -23,10 +23,10 @@ class Crawler:
     def __init__(self) -> None: pass
 
     def terminate_browser(self, br: EdgeBrowser):
-        if True:
+        try:
             br.driver.quit()
             del br
-        else: pass
+        except: pass
 
     def reset_browser(self, br: EdgeBrowser, lock=None):
         '''
@@ -52,7 +52,7 @@ class Crawler:
             if time.time() - t_ >= timeout:
                 raise Exception("Timed out")
 
-        time.sleep(1)
+        time.sleep(0.5)
 
     def get_df_industry_href(self, number_proxy):
         br = self.get_browser(number_proxy)
@@ -143,7 +143,7 @@ class Crawler:
                 try:
                     soup = BeautifulSoup(br.driver.page_source, "html.parser")
                     table = soup.find(name="div",
-                                    attrs={"class": "locationResults"})
+                                      attrs={"class": "locationResults"})
                     list_a_tag = table.find_all("a")
                     df = pd.DataFrame({"a_tag": list_a_tag})
                     df["city"] = df["a_tag"].apply(lambda x: x.text)
@@ -328,7 +328,7 @@ class Crawler:
                     df = Crawler.convert_list_soup_to_df_company_href(list_soup)
                     return 1, df
                 except:
-                    return 2, None
+                    return 3, None
 
             br.change_proxy()
 
@@ -421,8 +421,8 @@ class Crawler:
     
     def multithread_get_all_df_company_href(self,
                                             state,
-                                            num_thread,
                                             num_proxy,
+                                            num_thread,
                                             max_trial,
                                             start_index=0,
                                             last_index=-1,

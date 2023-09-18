@@ -48,6 +48,8 @@ class EdgeBrowser:
         if number_proxy != 0:
             list_proxy_button = self.get_list_proxy_button()
             [button.click() for button in list_proxy_button]
+        
+        self.change_proxy(random_proxy=True)
 
     def get_list_proxy_button(self):
         self.driver.get("edge://extensions/")

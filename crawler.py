@@ -258,11 +258,14 @@ class Crawler:
 
                 title = br.driver.title
                 if "Find" in title and "Dun & Bradstreet" in title:
-                    soup = BeautifulSoup(br.driver.page_source, "html.parser")
-                    list_soup.append(soup)
-                    ul = soup.find("ul", {"class": "integratedSearchPaginationPagination"})
-                    if ul.find_all("li", attrs={"class": "next"}).__len__() == 0 or page==20:
-                        check_continue = False
+                    try:
+                        soup = BeautifulSoup(br.driver.page_source, "html.parser")
+                        list_soup.append(soup)
+                        ul = soup.find("ul", {"class": "integratedSearchPaginationPagination"})
+                        if ul.find_all("li", attrs={"class": "next"}).__len__() == 0 or page==20:
+                            check_continue = False
+                    except:
+                        return "Error", None
                 elif "Access Denied" in title:
                     return "Denied", None
                 else:

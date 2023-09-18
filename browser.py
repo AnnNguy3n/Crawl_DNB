@@ -43,7 +43,8 @@ class EdgeBrowser:
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
         [options.add_extension(_) for _ in list_proxy]
         self.driver = webdriver.Edge(options=options,
-                                     service=Service(EdgeChromiumDriverManager().install()))
+                                     # service=Service(EdgeChromiumDriverManager().install())
+                                     )
         self.active_proxy_id = -1
         if number_proxy != 0:
             list_proxy_button = self.get_list_proxy_button()

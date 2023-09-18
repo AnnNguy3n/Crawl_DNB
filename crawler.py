@@ -41,8 +41,8 @@ class Crawler:
 
         time.sleep(0.5)
 
-    def get_df_industry_href(self):
-        br = self.get_browser()
+    def get_df_industry_href(self, number_proxy):
+        br = self.get_browser(number_proxy)
         count_access_denied = 0
         count_error = 0
         while True:
@@ -67,7 +67,7 @@ class Crawler:
                 if count_access_denied == 10:
                     count_access_denied = 0
                     self.terminate_browser(br)
-                    br = self.get_browser()
+                    br = self.get_browser(number_proxy)
                     count_error = 0
             elif status == "Error":
                 count_error += 1
@@ -76,7 +76,7 @@ class Crawler:
             elif status == "Broken":
                 count_access_denied = 0
                 self.terminate_browser(br)
-                br = self.get_browser()
+                br = self.get_browser(number_proxy)
                 count_error = 0
             else:
                 try:

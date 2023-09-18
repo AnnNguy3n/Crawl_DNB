@@ -407,6 +407,7 @@ class Crawler:
             print("Lần", trial, flush=True)
             T_.last_index = start_index
             T_.last_index_done = -1
+            print(T_.last_index, T_.len_, flush=True)
             threads = []
             for i in range(num_thread):
                 thread = threading.Thread(target=self._get_all_df_company_href_thread,
@@ -430,3 +431,42 @@ class Crawler:
                 data.to_csv(file_path, index=False)
 
             T_.df_check.to_csv(f"{FOLDER_DATA}/{state}/URLs/df_check.csv", index=False)
+
+    def visit_webpage_of_company(self, br, href):
+        url = f"https://www.dnb.com/business-directory/company-profiles.{href}.html"
+        try:
+            br.driver.get(url)
+            if "Challenge Validation" in br.driver.title:
+                self.wait_for_access(br)
+            
+            title = br.driver.title
+            if "Company Profile" in title and "Dun & Bradstreet" in title:
+                status = "Done"
+            elif "Access Denied" in title:
+                status = "Denied"
+            else:
+                status = "Error"
+        except:
+            status = "Broken"
+
+        return status
+    
+    def get_infor_company(self, br, href):
+        count_access_denied = 0
+        while True:
+            br.change_proxy()
+            status = self.visit_webpage_of_company(br, href)
+            if status == "Denied":
+                count_access_denied += 1
+                if count_access_denied == 10:
+                    return status, None
+            elif status == "Error":
+                return status, None
+            elif status == "Broken":
+                return status, None
+            else:
+                try:
+                    soup = BeautifulSoup(br.driver.page_source, "html.parser")
+                    return soup
+                except:
+                    return "Error", None

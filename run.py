@@ -55,4 +55,5 @@ def crawl_all_df_company_href(list_state, number_proxy, num_thread, max_trial, s
 
 # crawl_df_industry_href(0)
 # crawl_all_df_city_href(["florida", "texas"], 0, 8, 1)
-crawl_all_df_company_href(["florida"], 0, 8, 1, 0, 16)
+# crawl_all_df_company_href(["texas"], 0, 8, 1, 0, 16)
+crawl_all_df_company_href(["texas"], 0, 8, 1, 0, -1)

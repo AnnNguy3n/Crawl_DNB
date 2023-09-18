@@ -1,9 +1,23 @@
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 from browser import EdgeBrowser
-from CONFIG import MAIN_PAGE
+from CONFIG import MAIN_PAGE, FOLDER_DATA
 import time
 import pandas as pd
+import threading
+
+
+class TempClass:
+    def __init__(self) -> None: pass
+
+    def __temp__0__(self):
+        self.state = ""
+        self.df_check = pd.DataFrame({})
+        self.lock = threading.Lock()
+        self.last_index = 0
+        self.len_ = 0
+        self.list_df = []
+        self.number_proxy = 0
 
 
 class Crawler:
@@ -87,3 +101,141 @@ class Crawler:
                     count_error += 1
                     if count_error >= br.number_proxy:
                         raise Exception("Đã thử qua tất cả proxy nhưng không kéo được")
+
+    def visit_webpage_of_state(self, br: EdgeBrowser, industry_href, state, country="us"):
+        url = f"https://www.dnb.com/business-directory/company-information.{industry_href}.{country}.{state}.html"
+        try:
+            br.driver.get(url)
+            if "Challenge Validation" in br.driver.title:
+                self.wait_for_access(br)
+
+            title = br.driver.title
+            if "Discover" in title and "Dun & Bradstreet" in title:
+                status = "Done"
+            elif "Access Denied" in title:
+                status = "Denied"
+            else:
+                status = "Error"
+        except:
+            status = "Broken"
+
+        return status
+
+    @staticmethod
+    def handle_string(x):
+        x = x.text
+        x = x.replace("\n", "").strip()
+        temp = x.split(" ")
+        while True:
+            try: temp.remove("")
+            except: break
+
+        return " ".join(temp)
+
+    def get_df_city_href(self, br: EdgeBrowser, industry_href, state):
+        count_access_denied = 0
+        count_error = 0
+        while True:
+            br.change_proxy()
+            status = self.visit_webpage_of_state(br, industry_href, state)
+            if status == "Denied":
+                count_access_denied += 1
+                if count_access_denied == 10:
+                    return status, None
+            elif status == "Error":
+                count_error += 1
+                if count_error >= 10:
+                    return status, None
+            elif status == "Broken":
+                return status, None
+            else:
+                try:
+                    soup = BeautifulSoup(br.driver.page_source, "html.parser")
+                    table = soup.find("div", {"class": "locationResults"})
+                    list_a_tag = table.find_all("a")
+                    df = pd.DataFrame({"a_tag": list_a_tag})
+                    df["city"] = df["a_tag"].apply(Crawler.handle_string)
+                    df["href"] = df["a_tag"].apply(lambda x: x["href"].replace(f"/business-directory/company-information.{industry_href}.us.{state}.", "").replace(".html", ""))
+                    df["industry_href"] = industry_href
+                    df.pop("a_tag")
+                    return status, df
+                except:
+                    count_error += 1
+                    if count_error >= 10:
+                        return "Error", None
+
+    def _get_all_df_city_href_thread(self, T_: TempClass):
+        is_br_on = False
+        while True:
+            T_.lock.acquire()
+            try:
+                index = T_.last_index
+                T_.last_index += 1
+            finally: T_.lock.release()
+
+            if index >= T_.len_:
+                break
+
+            href = T_.df_check.loc[index, "href"]
+            is_done = T_.df_check.loc[index, "status"]
+            if is_done == "Done":
+                continue
+
+            if not is_br_on:
+                T_.lock.acquire()
+                try: br = self.get_browser(T_.number_proxy)
+                finally: T_.lock.release()
+                is_br_on = True
+
+            status, df = self.get_df_city_href(br, href, T_.state)
+            while status in ["Denied", "Broken"]:
+                self.terminate_browser(br)
+                T_.lock.acquire()
+                try: br = self.get_browser(T_.number_proxy)
+                finally: T_.lock.release()
+                status, df = self.get_df_city_href(br, href, T_.state)
+
+            T_.lock.acquire()
+            try:
+                T_.df_check.loc[index, "status"] = status
+                T_.df_check.to_csv(f"{FOLDER_DATA}/{T_.state}/df_check.csv")
+                if status == "Done":
+                    T_.list_df.append(df)
+            finally: T_.lock.release()
+
+            print(index, href, status, flush=True)
+
+        if is_br_on:
+            self.terminate_browser(br)
+
+    def multithread_get_all_df_city_href(self, state, num_thread=2, number_proxy=-1, max_trial=5):
+        try:
+            df_check = pd.read_csv(f"{FOLDER_DATA}/{state}/df_check.csv")
+        except:
+            df_industry_href = pd.read_csv(f"{FOLDER_DATA}/df_industry_href.csv")
+            df_check = df_industry_href[["href"]].copy()
+            df_check["status"] = "NotDone"
+
+        T_ = TempClass()
+        T_.state = state
+        T_.df_check = df_check
+        T_.lock = threading.Lock()
+        T_.last_index = 0
+        T_.len_ = len(df_check)
+        T_.list_df = []
+        T_.number_proxy = number_proxy
+
+        for trial in range(max_trial):
+            print("Lần", trial, flush=True)
+            T_.last_index = 0
+            threads = []
+            for i in range(num_thread):
+                thread = threading.Thread(target=self._get_all_df_city_href_thread,
+                                        args=(T_,))
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+
+        return T_

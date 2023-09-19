@@ -337,6 +337,7 @@ class Crawler:
         list_done = []
         list_error = []
         count = 0
+        reset_condition = 0
         last_index_done = -1
         def foo(data):
             data["name"] = data["name"].apply(lambda x: x.replace("\n", "").strip())
@@ -377,6 +378,7 @@ class Crawler:
                 count += 1
                 last_index_done = index
                 if count == 100:
+                    reset_condition += 1
                     last_index_done = -1
                     data = None
                     for df in getattr(T_, f"list_df_{thread_id}"):
@@ -396,7 +398,9 @@ class Crawler:
                     finally: T_.lock.release()
                     list_done.clear()
                     list_error.clear()
-                    br = self.reset_browser(br, T_.lock)
+                    if reset_condition == 10:
+                        br = self.reset_browser(br, T_.lock)
+                        reset_condition = 0
             else:
                 list_error.append(index)
 

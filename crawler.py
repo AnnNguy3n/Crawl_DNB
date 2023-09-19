@@ -365,6 +365,7 @@ class Crawler:
                 finally: T_.lock.release()
                 is_br_on = True
 
+            br.change_proxy()
             status, df = self.get_df_company_href(br, industry_href, T_.state, city)
             while status % 2 == 0:
                 br = self.reset_browser(br, T_.lock)
@@ -395,6 +396,7 @@ class Crawler:
                     finally: T_.lock.release()
                     list_done.clear()
                     list_error.clear()
+                    br = self.reset_browser(br, T_.lock)
             else:
                 list_error.append(index)
 

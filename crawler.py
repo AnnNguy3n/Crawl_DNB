@@ -34,7 +34,7 @@ class Crawler:
         '''
         number_proxy = br.number_proxy
         self.terminate_browser(br)
-        if lock is None:
+        if lock is None or number_proxy == 0:
             return self.get_browser(number_proxy)
 
         lock.acquire()

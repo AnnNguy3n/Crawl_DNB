@@ -54,7 +54,7 @@ class EdgeBrowser:
             [button.click() for button in self.get_list_proxy_button()]
 
         self.change_proxy(random_proxy=True)
-        self.driver.get("https://httpbin.org/ip")
+        # self.driver.get("https://httpbin.org/ip")
 
     def get_list_proxy_button(self):
         self.driver.get("edge://extensions/")

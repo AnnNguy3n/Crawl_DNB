@@ -431,3 +431,161 @@ class Crawler:
 
         T_.df_check.to_csv(f"{FOLDER_DATA}/Company_hrefs/df_check_{T_.name}.csv", index=False)
 
+    def visit_webpage_of_company(self, br, href):
+        url = f"https://www.dnb.com/business-directory/company-profiles.{href}.html"
+        try:
+            br.driver.get(url)
+            if "Challenge Validation" in br.driver.title:
+                self.wait_for_access(br)
+
+            title = br.driver.title
+            if "Company Profile" in title and "Dun & Bradstreet" in title:
+                status = 1
+            elif "Access Denied" in title:
+                status = 2
+            else:
+                status = 3
+        except:
+            status = 4
+
+        return status
+
+    @staticmethod
+    def convert_soup_to_infor(soup):
+        infor = {}
+        try: infor["name_company"] = soup.find("div", attrs={"class": "company-profile-header-title"}).text
+        except: pass
+        try: infor["key_principal"] = soup.find("span", attrs={"name": "key_principal"}).text
+        except: pass
+        try: infor["address"] = soup.find("span", attrs={"name": "company_address"}).text
+        except: pass
+        try: infor["website"] = soup.find("span", attrs={"name": "company_website"}).text
+        except: pass
+        try: infor["industry"] = soup.find("span", attrs={"name": "industry_links"}).text
+        except: pass
+        try:
+            contact_div = soup.find("div", attrs={"class": "contacts-body"})
+            contacts = contact_div.find_all("li", attrs={"class": "employee"})
+            for i in range(len(contacts)):
+                infor[f"contact_{i+1}"] = contacts[i].text
+        except: pass
+        try: infor["revenue"] = soup.find("span", attrs={"name": "revenue_in_us_dollar"}).text
+        except: pass
+        try: infor["contacts"] = soup.find("div", {"class": "contacts"}).text
+        except: pass
+        return infor
+
+    def get_company_infor(self, br: EdgeBrowser, href):
+        count_access_denied = 0
+        while True:
+            status = self.visit_webpage_of_company(br, href)
+            if status == 2:
+                count_access_denied += 1
+                if count_access_denied == 10: return 2, None
+            elif status != 1:
+                return status, None
+            else:
+                try:
+                    infor = Crawler.convert_soup_to_infor(
+                        BeautifulSoup(br.driver.page_source, "html.parser")
+                    )
+                    return 1, infor
+                except: return 3, None
+
+            br.change_proxy()
+
+    def _get_all_company_infor_thread(self, T_: TempClass, thread_id):
+        is_br_on = False
+        while True:
+            T_.lock.acquire()
+            try:
+                index = T_.last_index
+                T_.last_index += 1
+            finally: T_.lock.release()
+
+            if index >= T_.len_:
+                break
+
+            is_done = T_.df_check.loc[index, "status"]
+            if is_done == "Done": continue
+            href = T_.df_check.loc[index, "href"]
+
+            if not is_br_on:
+                T_.lock.acquire()
+                try: br = self.get_browser(T_.number_proxy)
+                finally: T_.lock.release()
+                is_br_on = True
+
+            br.change_proxy()
+            status, infor = self.get_company_infor(br, href)
+            while status % 2 == 0:
+                br = self.reset_browser(br, T_.lock)
+                status, infor = self.get_company_infor(br, href)
+
+            if infor is not None:
+                infor["href"] = href
+
+            if status == 1:
+                T_.df_check.loc[index, "status"] = "Done"
+                getattr(T_, f"list_infor_{thread_id}").append(infor)
+            else:
+                T_.df_check.loc[index, "status"] = "Error"
+
+            print(index, href, status, flush=True)
+
+        if is_br_on: self.terminate_browser(br)
+
+    def multithread_get_all_company_infor(self, name, num_proxy, num_thread, max_trial):
+        T_ = TempClass()
+        T_.name = name
+        try:
+            df_check = pd.read_csv(f"{FOLDER_DATA}/Raw_Data/df_check_{T_.name}.csv")
+        except:
+            df_check = pd.read_csv(f"{FOLDER_DATA}/Synthesized_company_hrefs/{T_.name}.csv")
+            df_check["status"] = "NotDone"
+
+        T_.df_check = df_check
+        T_.lock = threading.Lock()
+        T_.last_index = 0
+        T_.len_ = len(df_check)
+        for thread_id in range(num_thread):
+            setattr(T_, f"list_infor_{thread_id}", [])
+
+        T_.number_proxy = num_proxy
+
+        for trial in range(max_trial):
+            print("Lần", trial, flush=True)
+            T_.last_index = 0
+            threads = []
+            for i in range(num_thread):
+                thread = threading.Thread(target=self._get_all_company_infor_thread,
+                                          args=(T_, i,))
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+
+        list_infor = []
+        for thread_id in range(num_thread):
+            list_infor += getattr(T_, f"list_infor_{thread_id}")
+
+        list_columns = ["name_company",
+                        "key_principal",
+                        "address",
+                        "website",
+                        "industry",
+                        "contact_1",
+                        "contact_2",
+                        "contact_3",
+                        "contact_4",
+                        "revenue",
+                        "contacts",
+                        "href"
+                        ]
+        data = pd.DataFrame(list_infor, columns=list_columns)
+        if len(data) > 0:
+            file_path = f"{FOLDER_DATA}/Raw_Data/{T_.name}_{str(float(time.time()))}.csv"
+            data.to_csv(file_path, index=False)
+
+        T_.df_check.to_csv(f"{FOLDER_DATA}/Raw_Data/df_check_{T_.name}.csv", index=False)

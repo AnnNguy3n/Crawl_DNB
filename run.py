@@ -65,10 +65,16 @@ def synthesize_df_company_href(chunk_size=10000):
     for path in list_path:
         os.remove(path)
 
+def crawl_all_company_infor(name, num_proxy, num_thread, max_trial):
+    os.makedirs(f"{FOLDER_DATA}/Raw_Data", exist_ok=True)
+    crl = Crawler()
+    crl.multithread_get_all_company_infor(name, num_proxy, num_thread, max_trial)
+
 # zip_proxy_extensions()
 # crawl_df_industry_href(0)
 # crawl_all_df_city_href(["florida", "texas"], 0, 8, 1)
 # synthesize_df_city_href(["florida", "texas"])
 # crawl_all_df_company_href("0", 0, 8, 3)
 # crawl_all_df_company_href("1", 0, 8, 3)
-synthesize_df_company_href()
+# synthesize_df_company_href()
+crawl_all_company_infor("test", 0, 8, 3)

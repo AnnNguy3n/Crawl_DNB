@@ -360,11 +360,10 @@ class Crawler:
                 br = self.reset_browser(br, T_.lock)
                 status, df = self.get_df_company_href(br, industry_href, state, city)
 
-            df["industry_href"] = industry_href
-            df["state"] = state
-            df["city"] = city
-
             if status == 1:
+                df["industry_href"] = industry_href
+                df["state"] = state
+                df["city"] = city
                 T_.df_check.loc[index, "status"] = "Done"
                 getattr(T_, f"list_df_{thread_id}").append(df)
                 count += 1

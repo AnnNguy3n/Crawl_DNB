@@ -77,4 +77,5 @@ def crawl_all_company_infor(name, num_proxy, num_thread, max_trial):
 # crawl_all_df_company_href("0", 0, 8, 3)
 # crawl_all_df_company_href("1", 0, 8, 3)
 # synthesize_df_company_href()
-crawl_all_company_infor("test", 0, 8, 3)
+for i in range(1, 11):
+    crawl_all_company_infor(str(i), 0, 8, 3)

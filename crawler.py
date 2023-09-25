@@ -588,3 +588,4 @@ class Crawler:
             data.to_csv(file_path, index=False)
 
         T_.df_check.to_csv(f"{FOLDER_DATA}/Raw_Data/df_check_{T_.name}.csv", index=False)
+

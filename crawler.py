@@ -31,10 +31,11 @@ class Crawler:
             del br
         except: pass
 
-    def reset_browser(self, br: EdgeBrowser, lock:threading.Lock=None):
-        number_proxy = br.number_proxy
+    def reset_browser(self, br: EdgeBrowser, lock:threading.Lock=None, number_proxy=None):
+        if number_proxy is None:
+            number_proxy = br.number_proxy
         self.terminate_browser(br)
-        if lock is None:
+        if lock is None or number_proxy == 0:
             return self.get_browser(number_proxy)
 
         lock.acquire()
@@ -100,7 +101,7 @@ class Crawler:
                     count_error += 1
 
             if count_access_denied == 10 or (br.number_proxy != 0 and count_error == br.number_proxy):
-                br = self.reset_browser(br)
+                br = self.reset_browser(br, number_proxy=number_proxy)
                 count_access_denied = 0
                 count_error = 0
             else:
@@ -174,14 +175,16 @@ class Crawler:
             href = T_.df_check.loc[index, "href"]
 
             if not is_br_on:
-                T_.lock.acquire()
-                try: br = self.get_browser(T_.number_proxy)
-                finally: T_.lock.release()
+                # T_.lock.acquire()
+                # try: br = self.get_browser(T_.number_proxy)
+                # finally: T_.lock.release()
+                br = ...
+                br = self.reset_browser(br, T_.lock, T_.number_proxy)
                 is_br_on = True
 
             status, df = self.get_df_city_href(br, href, T_.state)
             while status == 2:
-                br = self.reset_browser(br, T_.lock)
+                br = self.reset_browser(br, T_.lock, T_.number_proxy)
                 status, df = self.get_df_city_href(br, href, T_.state)
 
             if status == 1:
@@ -349,15 +352,17 @@ class Crawler:
             city = T_.df_check.loc[index, "href"]
 
             if not is_br_on:
-                T_.lock.acquire()
-                try: br = self.get_browser(T_.number_proxy)
-                finally: T_.lock.release()
+                # T_.lock.acquire()
+                # try: br = self.get_browser(T_.number_proxy)
+                # finally: T_.lock.release()
+                br = ...
+                br = self.reset_browser(br, T_.lock, T_.number_proxy)
                 is_br_on = True
 
             br.change_proxy()
             status, df = self.get_df_company_href(br, industry_href, state, city)
             while status % 2 == 0:
-                br = self.reset_browser(br, T_.lock)
+                br = self.reset_browser(br, T_.lock, T_.number_proxy)
                 status, df = self.get_df_company_href(br, industry_href, state, city)
 
             if status == 1:
@@ -510,15 +515,17 @@ class Crawler:
             href = T_.df_check.loc[index, "href"]
 
             if not is_br_on:
-                T_.lock.acquire()
-                try: br = self.get_browser(T_.number_proxy)
-                finally: T_.lock.release()
+                # T_.lock.acquire()
+                # try: br = self.get_browser(T_.number_proxy)
+                # finally: T_.lock.release()
+                br = ...
+                br = self.reset_browser(br, T_.lock, T_.number_proxy)
                 is_br_on = True
 
             br.change_proxy()
             status, infor = self.get_company_infor(br, href)
             while status % 2 == 0:
-                br = self.reset_browser(br, T_.lock)
+                br = self.reset_browser(br, T_.lock, T_.number_proxy)
                 status, infor = self.get_company_infor(br, href)
 
             if infor is not None:

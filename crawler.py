@@ -440,7 +440,7 @@ class Crawler:
             title = br.driver.title
             if "Company Profile" in title and "Dun & Bradstreet" in title:
                 status = 1
-            elif "Access Denied" in title:
+            elif "Access Denied" in title or "Oh no! 500 Error" in title:
                 status = 2
             else:
                 status = 3

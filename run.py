@@ -70,12 +70,13 @@ def crawl_all_company_infor(name, num_proxy, num_thread, max_trial):
     crl = Crawler()
     crl.multithread_get_all_company_infor(name, num_proxy, num_thread, max_trial)
 
-# zip_proxy_extensions()
+zip_proxy_extensions()
 # crawl_df_industry_href(0)
 # crawl_all_df_city_href(["florida", "texas"], 0, 8, 1)
 # synthesize_df_city_href(["florida", "texas"])
 # crawl_all_df_company_href("0", 0, 8, 3)
 # crawl_all_df_company_href("1", 0, 8, 3)
 # synthesize_df_company_href()
-for i in range(1, 11):
-    crawl_all_company_infor(str(i), 0, 8, 3)
+for i in range(266, 270):
+    print("+++++", i, "+++++")
+    crawl_all_company_infor(str(i), 1, 8, 3)

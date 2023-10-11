@@ -39,6 +39,7 @@ class EdgeBrowser:
             })
 
         options = webdriver.EdgeOptions()
+        options.binary_location = "/usr/bin/microsoft-edge"
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
         options.add_argument("--disable-blink-features=AutomationControlled")
         [options.add_extension(_) for _ in list_proxy]
@@ -48,6 +49,7 @@ class EdgeBrowser:
             [button.click() for button in self.get_list_proxy_button()]
 
         self.change_proxy(random_proxy=True)
+        self.driver.get("https://httpbin.org/ip")
 
     def get_list_proxy_button(self):
         self.driver.get("edge://extensions/")

@@ -495,44 +495,49 @@ class Crawler:
 
     def _get_all_company_infor_thread(self, T_: TempClass, thread_id):
         is_br_on = False
-        while True:
-            T_.lock.acquire()
+        check = False
+        while not check:
             try:
-                index = T_.last_index
-                T_.last_index += 1
-            finally: T_.lock.release()
+                while True:
+                    T_.lock.acquire()
+                    try:
+                        index = T_.last_index
+                        T_.last_index += 1
+                    finally: T_.lock.release()
 
-            if index >= T_.len_:
-                break
+                    if index >= T_.len_:
+                        break
 
-            is_done = T_.df_check.loc[index, "status"]
-            if is_done == "Done": continue
-            href = T_.df_check.loc[index, "href"]
+                    is_done = T_.df_check.loc[index, "status"]
+                    if is_done == "Done": continue
+                    href = T_.df_check.loc[index, "href"]
 
-            if not is_br_on:
-                T_.lock.acquire()
-                try: br = self.get_browser(T_.number_proxy)
-                finally: T_.lock.release()
-                is_br_on = True
+                    if not is_br_on:
+                        T_.lock.acquire()
+                        try: br = self.get_browser(T_.number_proxy)
+                        finally: T_.lock.release()
+                        is_br_on = True
 
-            br.change_proxy()
-            status, infor = self.get_company_infor(br, href)
-            while status % 2 == 0:
-                br = self.reset_browser(br, T_.lock)
-                status, infor = self.get_company_infor(br, href)
+                    br.change_proxy()
+                    status, infor = self.get_company_infor(br, href)
+                    while status % 2 == 0:
+                        br = self.reset_browser(br, T_.lock)
+                        status, infor = self.get_company_infor(br, href)
 
-            if infor is not None:
-                infor["href"] = href
+                    if infor is not None:
+                        infor["href"] = href
 
-            if status == 1:
-                T_.df_check.loc[index, "status"] = "Done"
-                getattr(T_, f"list_infor_{thread_id}").append(infor)
-            else:
-                T_.df_check.loc[index, "status"] = "Error"
+                    if status == 1:
+                        T_.df_check.loc[index, "status"] = "Done"
+                        getattr(T_, f"list_infor_{thread_id}").append(infor)
+                    else:
+                        T_.df_check.loc[index, "status"] = "Error"
 
-            print(index, href, status, flush=True)
+                    print(index, href, status, flush=True)
 
-        if is_br_on: self.terminate_browser(br)
+                if is_br_on: self.terminate_browser(br)
+                check = True
+            except: pass
 
     def multithread_get_all_company_infor(self, name, num_proxy, num_thread, max_trial):
         T_ = TempClass()
